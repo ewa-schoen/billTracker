@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bill Tracker</title>
+<meta name="description" content="A monthly checklist of the payments you need to make.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#EDF1F4" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0D1620" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<style>
+:root{
+  color-scheme: light dark;
+  --bg:#EDF1F4;
+  --surface:#FFFFFF;
+  --ink:#13202E;
+  --muted:#5B6B7B;
+  --line:#D5DDE4;
+  --ring:#8798A8;
+  --accent:#0A7360;
+  --accent-ink:#FFFFFF;
+  --paid-bg:#E1F2EE;
+  --warn:#8F5200;
+  --bad:#B42A22;
+  --bad-bg:#FBE4E1;
+  --link:#1F5FBF;
+  --toast-action:#3CCBA8;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0D1620;
+    --surface:#15212E;
+    --ink:#E6EDF3;
+    --muted:#93A3B3;
+    --line:#263646;
+    --ring:#5E7387;
+    --accent:#3CCBA8;
+    --accent-ink:#06231C;
+    --paid-bg:#123229;
+    --warn:#F2C065;
+    --bad:#FF8A80;
+    --bad-bg:#3C1B19;
+    --link:#7FB0FF;
+    --toast-action:#0A7360;
+  }
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  -webkit-text-size-adjust:100%;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid var(--link);outline-offset:2px}
+
+.wrap{
+  max-width:560px;margin:0 auto;
+  padding:calc(14px + env(safe-area-inset-top,0px)) 16px calc(130px + env(safe-area-inset-bottom,0px));
+}
+
+/* header */
+.head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+h1{margin:0;font-size:clamp(26px,8.4vw,36px);line-height:1.05;font-weight:800;letter-spacing:-.03em}
+.subline{display:flex;align-items:center;gap:12px;margin-top:4px;min-height:32px;color:var(--muted);font-weight:600}
+.linkbtn{background:none;border:0;padding:4px 0;min-height:32px;font-size:14px;font-weight:700;color:var(--link)}
+.tools{display:flex;gap:4px;padding-top:2px;flex:none}
+.iconbtn{
+  width:42px;height:42px;border-radius:50%;border:1px solid var(--line);
+  background:var(--surface);display:grid;place-items:center;padding:0;
+}
+.iconbtn svg{width:22px;height:22px}
+
+/* summary */
+.summary{margin:22px 0 6px}
+.sumrow{display:flex;justify-content:space-between;align-items:baseline;gap:4px 16px;flex-wrap:wrap}
+.count{margin:0;font-size:22px;font-weight:750;letter-spacing:-.01em}
+.left{margin:0;color:var(--muted);font-size:15px;font-variant-numeric:tabular-nums}
+.left b{color:var(--ink);font-weight:700}
+.segs{display:flex;gap:4px;margin-top:12px}
+.seg{flex:1;min-width:3px;height:10px;border-radius:5px;background:var(--line)}
+.seg.paid{background:var(--accent)}
+.seg.late{background:var(--bad)}
+.note{margin:10px 0 0;color:var(--muted);font-size:14px}
+.note.bad{color:var(--bad);font-weight:600}
+
+/* lists */
+.grouphead{display:flex;align-items:baseline;gap:8px;margin:22px 4px 8px;font-size:14px;font-weight:700;color:var(--muted)}
+.group{list-style:none;margin:0;padding:0;background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden}
+.row{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;
+  padding:10px 16px 10px 10px;min-height:68px;border-top:1px solid var(--line);
+}
+.row:first-child{border-top:0}
+.check{
+  width:44px;height:44px;border-radius:50%;padding:0;display:grid;place-items:center;
+  background:transparent;border:2px solid var(--ring);color:var(--accent-ink);
+}
+.check svg{width:24px;height:24px;opacity:0;transform:scale(.6);transition:opacity .12s,transform .12s}
+.row.paid .check{background:var(--accent);border-color:var(--accent)}
+.row.paid .check svg{opacity:1;transform:none}
+.check.pop{animation:pop .24s ease-out}
+@keyframes pop{0%{transform:scale(.82)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+.namebtn{
+  display:block;max-width:100%;background:none;border:0;padding:4px 0;text-align:left;
+  font-size:17px;font-weight:650;overflow-wrap:anywhere;
+}
+.meta{font-size:14px;color:var(--muted)}
+.meta.warn{color:var(--warn);font-weight:650}
+.meta.bad{color:var(--bad);font-weight:650}
+.amt{font-variant-numeric:tabular-nums;font-weight:650;white-space:nowrap;text-align:right}
+.row.paid .amt{color:var(--muted);font-weight:500}
+.stamp{
+  display:inline-flex;align-items:center;min-height:28px;margin-top:3px;padding:2px 9px;
+  font-size:13px;font-weight:700;color:var(--accent);background:var(--paid-bg);
+  border:1.5px dashed var(--accent);border-radius:7px;transform:rotate(-1.5deg);
+}
+
+.skipped{margin:18px 4px 0;font-size:14px;color:var(--muted)}
+.skipped .srow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:2px 0}
+.skipped .linkbtn{flex:none}
+
+.empty{text-align:center;padding:36px 12px 8px}
+.empty h2{margin:0 0 6px;font-size:22px;font-weight:750}
+.empty p{margin:0 auto;max-width:34ch;color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:18px}
+.chip{
+  min-height:44px;padding:0 16px;border-radius:22px;background:var(--surface);
+  border:1px solid var(--line);font-weight:650;
+}
+
+.hist{margin-top:30px}
+.hist .grouphead{margin-top:0}
+.histrow{
+  display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;
+  min-height:52px;padding:0 16px;background:none;border:0;border-top:1px solid var(--line);text-align:left;
+}
+.hist li:first-child .histrow{border-top:0}
+.histrow[aria-current="true"]{background:var(--paid-bg)}
+.histrow .res{font-size:14px;color:var(--muted);font-variant-numeric:tabular-nums}
+.histrow .res.ok{color:var(--accent);font-weight:700}
+.histrow .res.bad{color:var(--bad);font-weight:700}
+
+.add{
+  position:fixed;left:0;right:0;margin:0 auto;width:max-content;
+  bottom:calc(18px + env(safe-area-inset-bottom,0px));
+  height:56px;padding:0 24px 0 18px;border:0;border-radius:28px;white-space:nowrap;
+  display:flex;align-items:center;gap:8px;font-weight:750;
+  background:var(--ink);color:var(--bg);box-shadow:0 8px 22px rgba(10,20,30,.28);z-index:10;
+}
+.add svg{width:22px;height:22px}
+
+/* sheets */
+.scrim{position:fixed;inset:0;z-index:20;background:rgba(9,15,22,.55);display:flex;align-items:flex-end;justify-content:center}
+.sheet{
+  width:100%;max-width:560px;max-height:92vh;overflow:auto;background:var(--surface);
+  border-radius:24px 24px 0 0;padding:10px 20px calc(20px + env(safe-area-inset-bottom,0px));
+  animation:up .2s ease-out;
+}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 14px}
+.sheet h2{margin:0 0 4px;font-size:21px;font-weight:750;letter-spacing:-.01em;overflow-wrap:anywhere}
+.sheet .sub{margin:0 0 16px;color:var(--muted);font-size:15px}
+.field{display:block;margin-bottom:14px}
+.lbl{display:block;font-size:14px;font-weight:650;margin-bottom:6px}
+.lbl .opt{color:var(--muted);font-weight:500}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+input[type=text],input[type=number],input[type=date]{
+  width:100%;height:48px;padding:0 14px;border-radius:12px;border:1.5px solid var(--line);
+  background:var(--bg);color:var(--ink);font:inherit;font-size:16px;
+}
+input:focus{border-color:var(--link)}
+.switchrow{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:6px 0 18px}
+.switchrow b{font-weight:650}
+.switchrow small{display:block;color:var(--muted);font-size:13px}
+input.switch{
+  -webkit-appearance:none;appearance:none;flex:none;position:relative;margin:0;
+  width:52px;height:32px;border-radius:16px;border:0;background:var(--ring);transition:background .15s;
+}
+input.switch::after{
+  content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;
+  background:#fff;transition:transform .15s;
+}
+input.switch:checked{background:var(--accent)}
+input.switch:checked::after{transform:translateX(20px)}
+.btnrow{display:grid;gap:10px}
+.btn{
+  min-height:50px;width:100%;padding:0 18px;border-radius:14px;border:0;font-weight:700;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+}
+.btn small{font-size:13px;font-weight:500;opacity:.85}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent;border:1.5px solid var(--line)}
+.btn.danger{background:var(--bad-bg);color:var(--bad)}
+.extras{margin-top:14px;padding-top:6px;border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:stretch}
+.textbtn{background:none;border:0;min-height:46px;padding:8px 4px;text-align:left;font-weight:650}
+.textbtn.dangertext{color:var(--bad)}
+.hint{margin:0 0 6px;color:var(--muted);font-size:13px}
+.section{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.section h3{margin:0 0 10px;font-size:15px;font-weight:700}
+.section p{margin:0 0 12px;color:var(--muted);font-size:14px}
+.vis{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+.toast{
+  position:fixed;left:0;right:0;margin:0 auto;width:max-content;z-index:30;
+  bottom:calc(88px + env(safe-area-inset-bottom,0px));
+  max-width:calc(100% - 32px);display:flex;align-items:center;gap:14px;
+  padding:12px 14px 12px 16px;border-radius:14px;background:var(--ink);color:var(--bg);font-size:15px;
+  box-shadow:0 8px 22px rgba(10,20,30,.3);
+}
+.toast button{background:none;border:0;padding:6px 4px;min-height:36px;font-weight:800;color:var(--toast-action)}
+
+@media (prefers-reduced-motion: reduce){
+  *{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="head">
+    <div>
+      <h1 id="monthName"></h1>
+      <div class="subline">
+        <span id="monthYear"></span>
+        <button class="linkbtn" id="todayBtn" type="button" hidden>Back to this month</button>
+      </div>
+    </div>
+    <div class="tools">
+      <button class="iconbtn" id="prevBtn" type="button" aria-label="Previous month"></button>
+      <button class="iconbtn" id="nextBtn" type="button" aria-label="Next month"></button>
+      <button class="iconbtn" id="settingsBtn" type="button" aria-label="Settings"></button>
+    </div>
+  </header>
+  <section class="summary" id="summary" aria-live="polite"></section>
+  <main id="list"></main>
+  <section class="hist" id="history"></section>
+</div>
+<button class="add" id="addBtn" type="button"></button>
+<div id="sheetRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ---------- small helpers ---------- */
+  var KEY = 'billTracker.v1';
+  var $ = function (s) { return document.querySelector(s); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+
+  var ICON = {
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    left: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    right: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+    tune: '<svg viewBox="0 0 24 24" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M20 7h0M4 12h4M14 12h6M4 17h10M20 17h0"/><circle cx="17" cy="7" r="2.2"/><circle cx="11" cy="12" r="2.2"/><circle cx="17" cy="17" r="2.2"/></g></svg>'
+  };
+
+  // tiny DOM builder (uses textContent, so names typed by the user can never inject HTML)
+  function h(tag, attrs) {
+    var el = document.createElement(tag);
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        var v = attrs[k];
+        if (v == null || v === false) return;
+        if (k === 'class') el.className = v;
+        else if (k === 'html') el.innerHTML = v;
+        else if (k === 'value' || k === 'checked' || k === 'hidden') el[k] = v;
+        else if (k.slice(0, 2) === 'on') el.addEventListener(k.slice(2), v);
+        else el.setAttribute(k, v === true ? '' : v);
+      });
+    }
+    for (var i = 2; i < arguments.length; i++) append(el, arguments[i]);
+    return el;
+  }
+  function append(el, kid) {
+    if (kid == null || kid === false) return;
+    if (Array.isArray(kid)) { kid.forEach(function (k) { append(el, k); }); return; }
+    el.appendChild(typeof kid === 'string' || typeof kid === 'number' ? document.createTextNode(String(kid)) : kid);
+  }
+  function uid() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+
+  /* ---------- dates ---------- */
+  function monthKey(d) { d = d || new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1); }
+  function todayISO() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function shiftMonth(key, delta) { var p = key.split('-').map(Number); return monthKey(new Date(p[0], p[1] - 1 + delta, 1)); }
+  function daysIn(key) { var p = key.split('-').map(Number); return new Date(p[0], p[1], 0).getDate(); }
+  function monthLabel(key, opts) {
+    var p = key.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, 1).toLocaleDateString(undefined, opts || { month: 'long', year: 'numeric' });
+  }
+  function isoToDate(iso) { var p = iso.split('-').map(Number); return new Date(p[0], p[1] - 1, p[2]); }
+  function daysBetween(a, b) { return Math.round((isoToDate(b) - isoToDate(a)) / 86400000); }
+  function fmtDate(iso, weekday) {
+    var d = isoToDate(iso);
+    var o = { day: 'numeric', month: 'short' };
+    if (weekday !== false) o.weekday = 'short';
+    if (d.getFullYear() !== new Date().getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString(undefined, o);
+  }
+  function dueISO(p, m) { return m + '-' + pad(Math.min(p.dueDay, daysIn(m))); }
+
+  /* ---------- data ---------- */
+  // payments: the recurring "template". paid[month][paymentId] = { d: 'YYYY-MM-DD', a: amountAtThatTime }.
+  // Each month's checklist is worked out from the template, so every new month starts unticked by itself.
+  function blank() { return { version: 1, currency: '', payments: [], paid: {}, skipped: {} }; }
+
+  function sanitize(d) {
+    var out = blank();
+    if (!d || typeof d !== 'object') return out;
+    var mre = /^\d{4}-(0[1-9]|1[0-2])$/, dre = /^\d{4}-\d{2}-\d{2}$/;
+    if (typeof d.currency === 'string') out.currency = d.currency.slice(0, 4);
+    var ids = {};
+    (Array.isArray(d.payments) ? d.payments : []).forEach(function (p) {
+      if (!p || typeof p.id !== 'string' || typeof p.name !== 'string' || ids[p.id]) return;
+      ids[p.id] = true;
+      out.payments.push({
+        id: p.id,
+        name: p.name.slice(0, 60),
+        amount: (typeof p.amount === 'number' && isFinite(p.amount) && p.amount >= 0) ? p.amount : null,
+        dueDay: (Number.isInteger(p.dueDay) && p.dueDay >= 1 && p.dueDay <= 31) ? p.dueDay : null,
+        from: mre.test(p.from) ? p.from : monthKey(),
+        until: mre.test(p.until) ? p.until : null
+      });
+    });
+    if (d.paid && typeof d.paid === 'object') {
+      Object.keys(d.paid).forEach(function (m) {
+        if (!mre.test(m) || !d.paid[m] || typeof d.paid[m] !== 'object') return;
+        out.paid[m] = {};
+        Object.keys(d.paid[m]).forEach(function (id) {
+          var r = d.paid[m][id];
+          if (ids[id] && r && dre.test(r.d)) {
+            out.paid[m][id] = { d: r.d, a: (typeof r.a === 'number' && isFinite(r.a)) ? r.a : null };
+          }
+        });
+      });
+    }
+    if (d.skipped && typeof d.skipped === 'object') {
+      Object.keys(d.skipped).forEach(function (m) {
+        if (!mre.test(m) || !Array.isArray(d.skipped[m])) return;
+        out.skipped[m] = d.skipped[m].filter(function (id) { return ids[id]; });
+      });
+    }
+    return out;
+  }
+
+  var state = load();
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw) return sanitize(JSON.parse(raw));
+    } catch (e) { /* fall through to a fresh state */ }
+    return blank();
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); }
+    catch (e) { toast('Could not save. Storage may be full or blocked.'); }
+  }
+
+  var live = monthKey();   // the real current month
+  var view = live;         // the month on screen
+  var pulseId = null;
+
+  function find(id) { return state.payments.filter(function (p) { return p.id === id; })[0]; }
+  function active(p, m) { return p.from <= m && (!p.until || m <= p.until); }
+  function isSkipped(p, m) { return (state.skipped[m] || []).indexOf(p.id) !== -1; }
+  function listFor(m) { return state.payments.filter(function (p) { return active(p, m) && !isSkipped(p, m); }); }
+  function skippedFor(m) { return state.payments.filter(function (p) { return active(p, m) && isSkipped(p, m); }); }
+  function record(id, m) { return (state.paid[m] || {})[id] || null; }
+  function byDue(a, b) { return (a.dueDay || 99) - (b.dueDay || 99) || a.name.localeCompare(b.name); }
+
+  function money(n) {
+    var s = Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    var c = (state.currency || '').trim();
+    if (!c) return s;
+    return /^[^\p{L}\p{N}]$/u.test(c) ? c + s : s + '\u00A0' + c;
+  }
+  function parseAmount(s) {
+    s = String(s || '').trim().replace(/\s/g, '').replace(',', '.');
+    if (!s) return null;
+    var n = Number(s);
+    return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+  }
+
+  /* ---------- actions ---------- */
+  // Every change goes through here, so every change can be undone from the toast.
+  function change(message, fn) {
+    var snapshot = JSON.stringify(state);
+    fn();
+    save();
+    render();
+    toast(message, {
+      label: 'Undo',
+      fn: function () { state = sanitize(JSON.parse(snapshot)); save(); render(); }
+    });
+  }
+
+  function markPaid(id, m) {
+    var p = find(id);
+    var d = todayISO();
+    pulseId = id;
+    change('Marked “' + p.name + '” as paid on ' + fmtDate(d), function () {
+      if (!state.paid[m]) state.paid[m] = {};
+      state.paid[m][id] = { d: d, a: p.amount };
+    });
+  }
+  function unmarkPaid(id, m) {
+    var p = find(id);
+    change('Marked “' + p.name + '” as not paid', function () { delete state.paid[m][id]; });
+  }
+  function setPaidDate(id, m, iso) {
+    if (!record(id, m) || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return;
+    state.paid[m][id].d = iso;
+    save(); render();
+  }
+  function addPayment(f, m) {
+    state.payments.push({ id: uid(), name: f.name, amount: f.amount, dueDay: f.dueDay, from: m, until: f.repeat ? null : m });
+    save(); render();
+  }
+  function updatePayment(id, f, m) {
+    var p = find(id);
+    p.name = f.name; p.amount = f.amount; p.dueDay = f.dueDay;
+    if (f.repeat) p.until = null;
+    else if (p.until === null) p.until = m < p.from ? p.from : m;
+    save(); render();
+  }
+  function skipMonth(id, m) {
+    if (!state.skipped[m]) state.skipped[m] = [];
+    if (state.skipped[m].indexOf(id) === -1) state.skipped[m].push(id);
+    if (state.paid[m]) delete state.paid[m][id];
+  }
+  function unskipMonth(id, m) {
+    state.skipped[m] = (state.skipped[m] || []).filter(function (x) { return x !== id; });
+  }
+  // Removes a payment from month `start` onward. Earlier months keep their history.
+  function removeFrom(id, start) {
+    var p = find(id);
+    p.until = shiftMonth(start, -1);
+    Object.keys(state.paid).forEach(function (mo) { if (mo >= start) delete state.paid[mo][id]; });
+    Object.keys(state.skipped).forEach(function (mo) {
+      if (mo >= start) state.skipped[mo] = state.skipped[mo].filter(function (x) { return x !== id; });
+    });
+    if (p.until < p.from) {
+      state.payments = state.payments.filter(function (x) { return x.id !== id; });
+      Object.keys(state.paid).forEach(function (mo) { delete state.paid[mo][id]; });
+    }
+  }
+
+  /* ---------- rendering ---------- */
+  function statusFor(p, m) {
+    var today = todayISO();
+    if (m < live) return { text: 'Not paid', tone: 'bad' };
+    if (!p.dueDay) return null;
+    var due = dueISO(p, m);
+    if (m > live) return { text: 'Due ' + fmtDate(due, false), tone: '' };
+    var diff = daysBetween(today, due);
+    if (diff < 0) return { text: (-diff) + (diff === -1 ? ' day overdue' : ' days overdue'), tone: 'bad' };
+    if (diff === 0) return { text: 'Due today', tone: 'warn' };
+    if (diff === 1) return { text: 'Due tomorrow', tone: 'warn' };
+    if (diff <= 3) return { text: 'Due in ' + diff + ' days', tone: 'warn' };
+    return { text: 'Due ' + fmtDate(due, false), tone: '' };
+  }
+
+  function rowFor(p, m) {
+    var rec = record(p.id, m);
+    var paid = !!rec;
+    var st = paid ? null : statusFor(p, m);
+    var amount = paid ? (rec.a != null ? rec.a : p.amount) : p.amount;
+    var check = h('button', {
+      class: 'check' + (pulseId === p.id ? ' pop' : ''),
+      type: 'button',
+      'data-check': p.id,
+      'aria-pressed': paid ? 'true' : 'false',
+      'aria-label': (paid ? 'Mark as not paid: ' : 'Mark as paid: ') + p.name,
+      html: ICON.check,
+      onclick: function () { if (paid) unmarkPaid(p.id, m); else markPaid(p.id, m); }
+    });
+    var text = h('div', null,
+      h('button', { class: 'namebtn', type: 'button', 'aria-label': 'Edit ' + p.name, onclick: function () { paymentSheet(p); } }, p.name),
+      paid
+        ? h('button', { class: 'stamp', type: 'button', onclick: function () { dateSheet(p.id, m); } }, 'Paid ' + fmtDate(rec.d))
+        : (st ? h('div', { class: 'meta ' + st.tone }, st.text) : null)
+    );
+    return h('li', { class: 'row' + (paid ? ' paid' : '') }, check, text,
+      h('span', { class: 'amt' }, amount != null ? money(amount) : ''));
+  }
+
+  function renderSummary(items, unpaid, paid, m) {
+    var box = $('#summary');
+    box.replaceChildren();
+    if (!items.length) return;
+    var hasAmounts = items.some(function (p) { return p.amount != null || (record(p.id, m) && record(p.id, m).a != null); });
+    var left = unpaid.reduce(function (s, p) { return s + (p.amount || 0); }, 0);
+    var paidTotal = paid.reduce(function (s, p) { var r = record(p.id, m); return s + (r.a != null ? r.a : (p.amount || 0)); }, 0);
+
+    var right = null;
+    if (hasAmounts) {
+      right = unpaid.length
+        ? h('p', { class: 'left' }, 'Left to pay ', h('b', null, money(left)))
+        : h('p', { class: 'left' }, 'Paid in total ', h('b', null, money(paidTotal)));
+    }
+    var segs = h('div', { class: 'segs', role: 'img', 'aria-label': paid.length + ' of ' + items.length + ' paid' },
+      paid.map(function () { return h('span', { class: 'seg paid' }); }),
+      unpaid.map(function (p) {
+        var st = statusFor(p, m);
+        return h('span', { class: 'seg' + (st && st.tone === 'bad' ? ' late' : '') });
+      })
+    );
+
+    var note = null, overdue = unpaid.filter(function (p) { var s = statusFor(p, m); return s && s.tone === 'bad'; }).length;
+    if (!unpaid.length) note = h('p', { class: 'note' }, 'Everything for ' + monthLabel(m, { month: 'long' }) + ' is paid.');
+    else if (m < live) note = h('p', { class: 'note bad' }, unpaid.length + (unpaid.length === 1 ? ' payment was' : ' payments were') + ' not marked as paid.');
+    else if (overdue) note = h('p', { class: 'note bad' }, overdue + ' overdue');
+    else if (m > live) note = h('p', { class: 'note' }, 'Your payments repeat automatically. This month starts unticked.');
+
+    box.appendChild(h('div', { class: 'sumrow' },
+      h('p', { class: 'count' }, paid.length + ' of ' + items.length + ' paid'), right));
+    box.appendChild(segs);
+    if (note) box.appendChild(note);
+  }
+
+  function renderList() {
+    var m = view;
+    var items = listFor(m);
+    var unpaid = items.filter(function (p) { return !record(p.id, m); }).sort(byDue);
+    var paid = items.filter(function (p) { return record(p.id, m); }).sort(function (a, b) {
+      return record(a.id, m).d.localeCompare(record(b.id, m).d) || byDue(a, b);
+    });
+
+    renderSummary(items, unpaid, paid, m);
+
+    var out = [];
+    if (!items.length && !skippedFor(m).length) {
+      out.push(h('div', { class: 'empty' },
+        h('h2', null, state.payments.length ? 'Nothing due in ' + monthLabel(m, { month: 'long' }) : 'No payments yet'),
+        h('p', null, state.payments.length
+          ? 'Add a payment for this month, or go to another month.'
+          : 'Add the bills you pay regularly. They come back unticked every month, so you can see at a glance what is still open.'),
+        h('div', { class: 'chips' }, ['Electric bill', 'Mortgage', 'Swimming'].map(function (n) {
+          return h('button', { class: 'chip', type: 'button', onclick: function () { paymentSheet(null, n); } }, n);
+        }))
+      ));
+    }
+    if (unpaid.length) {
+      out.push(h('div', { class: 'grouphead' }, 'To pay', h('span', null, String(unpaid.length))));
+      out.push(h('ul', { class: 'group' }, unpaid.map(function (p) { return rowFor(p, m); })));
+    }
+    if (paid.length) {
+      out.push(h('div', { class: 'grouphead' }, 'Paid', h('span', null, String(paid.length))));
+      out.push(h('ul', { class: 'group' }, paid.map(function (p) { return rowFor(p, m); })));
+    }
+    var skipped = skippedFor(m);
+    if (skipped.length) {
+      out.push(h('div', { class: 'skipped' },
+        h('div', null, 'Skipped in ' + monthLabel(m, { month: 'long' }) + ':'),
+        skipped.map(function (p) {
+          return h('div', { class: 'srow' }, h('span', null, p.name),
+            h('button', { class: 'linkbtn', type: 'button', onclick: function () {
+              change('Added “' + p.name + '” back to ' + monthLabel(m, { month: 'long' }), function () { unskipMonth(p.id, m); });
+            } }, 'Add back'));
+        })));
+    }
+    $('#list').replaceChildren.apply($('#list'), out);
+    pulseId = null;
+  }
+
+  function renderHistory() {
+    var box = $('#history');
+    box.replaceChildren();
+    if (!state.payments.length) return;
+    var earliest = state.payments.reduce(function (min, p) { return p.from < min ? p.from : min; }, live);
+    var rows = [];
+    for (var i = 1; i <= 6; i++) {
+      var mk = shiftMonth(live, -i);
+      if (mk < earliest) break;
+      var items = listFor(mk);
+      if (!items.length) continue;
+      var done = items.filter(function (p) { return record(p.id, mk); }).length;
+      rows.push({ mk: mk, done: done, total: items.length });
+    }
+    if (!rows.length) return;
+    box.appendChild(h('div', { class: 'grouphead' }, 'Earlier months'));
+    box.appendChild(h('ul', { class: 'group' }, rows.map(function (r) {
+      var complete = r.done === r.total;
+      return h('li', null, h('button', {
+        class: 'histrow', type: 'button', 'aria-current': r.mk === view ? 'true' : null,
+        onclick: function () { view = r.mk; render(); window.scrollTo(0, 0); }
+      },
+        h('span', null, monthLabel(r.mk)),
+        h('span', { class: 'res ' + (complete ? 'ok' : 'bad') },
+          complete ? 'All ' + r.total + ' paid' : (r.total - r.done) + ' not paid')));
+    })));
+  }
+
+  function render() {
+    $('#monthName').textContent = monthLabel(view, { month: 'long' });
+    $('#monthYear').textContent = monthLabel(view, { year: 'numeric' });
+    $('#todayBtn').hidden = view === live;
+    renderList();
+    renderHistory();
+  }
+
+  /* ---------- toast ---------- */
+  var toastTimer = null;
+  function toast(message, action) {
+    var root = $('#toastRoot');
+    clearTimeout(toastTimer);
+    root.replaceChildren();
+    var el = h('div', { class: 'toast', role: 'status' }, h('span', null, message));
+    if (action) {
+      el.appendChild(h('button', { type: 'button', onclick: function () {
+        clearTimeout(toastTimer); root.replaceChildren(); action.fn();
+      } }, action.label));
+    }
+    root.appendChild(el);
+    toastTimer = setTimeout(function () { root.replaceChildren(); }, action ? 6000 : 3500);
+  }
+
+  /* ---------- sheets (bottom dialogs) ---------- */
+  var sheetEl = null, sheetHistory = false;
+  function openSheet(title, sub, nodes, focusFirst) {
+    var content = [
+      h('div', { class: 'grab' }),
+      h('h2', null, title),
+      sub ? h('p', { class: 'sub' }, sub) : null,
+      nodes
+    ];
+    if (sheetEl) {                       // swap content in place (e.g. Edit -> Remove)
+      var sheet = sheetEl.firstChild;
+      sheet.replaceChildren.apply(sheet, content.filter(Boolean).flat());
+      sheet.scrollTop = 0;
+      return;
+    }
+    clearTimeout(toastTimer); $('#toastRoot').replaceChildren();
+    var box = h('div', { class: 'sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': title });
+    append(box, content);
+    sheetEl = h('div', { class: 'scrim', onclick: function (e) { if (e.target === sheetEl) closeSheet(); } }, box);
+    $('#sheetRoot').appendChild(sheetEl);
+    // Lets the Android back button close the sheet instead of leaving the app.
+    try { history.pushState({ sheet: 1 }, ''); sheetHistory = true; } catch (e) { sheetHistory = false; }
+    if (focusFirst) { var first = box.querySelector('input:not([type=checkbox])'); if (first) first.focus(); }
+  }
+  function removeSheetEl() { if (sheetEl) { sheetEl.remove(); sheetEl = null; } }
+  function closeSheet() {
+    if (!sheetEl) return;
+    if (sheetHistory) { sheetHistory = false; history.back(); }   // popstate below removes it
+    else removeSheetEl();
+  }
+  window.addEventListener('popstate', removeSheetEl);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+
+  function field(label, input, optional) {
+    return h('label', { class: 'field' },
+      h('span', { class: 'lbl' }, label, optional ? h('span', { class: 'opt' }, ' (optional)') : null), input);
+  }
+  function button(cls, label, onclick, type, sub) {
+    return h('button', { class: 'btn ' + cls, type: type || 'button', onclick: onclick }, label, sub ? h('small', null, sub) : null);
+  }
+
+  function paymentSheet(existing, preset) {
+    var m = view, editing = !!existing;
+    var nameI = h('input', { type: 'text', required: true, maxlength: '60', placeholder: 'e.g. Electric bill', autocomplete: 'off', autocapitalize: 'sentences', value: editing ? existing.name : (preset || '') });
+    var amtI = h('input', { type: 'text', inputmode: 'decimal', pattern: '[0-9]*[.,]?[0-9]*', title: 'Numbers only, for example 120.50', placeholder: '0.00', autocomplete: 'off', value: editing && existing.amount != null ? String(existing.amount) : '' });
+    var dueI = h('input', { type: 'number', inputmode: 'numeric', min: '1', max: '31', step: '1', placeholder: 'e.g. 15', value: editing && existing.dueDay ? String(existing.dueDay) : '' });
+    var repI = h('input', { type: 'checkbox', class: 'switch', role: 'switch', checked: editing ? existing.until === null : true });
+
+    var form = h('form', { novalidate: false, onsubmit: function (e) {
+      e.preventDefault();
+      var name = nameI.value.trim();
+      if (!name) { nameI.focus(); return; }
+      var due = parseInt(dueI.value, 10);
+      var f = { name: name, amount: parseAmount(amtI.value), dueDay: (due >= 1 && due <= 31) ? due : null, repeat: repI.checked };
+      if (editing) { updatePayment(existing.id, f, m); closeSheet(); toast('Saved changes'); }
+      else { addPayment(f, m); closeSheet(); toast('Added “' + name + '”'); }
+    } },
+      field('Name', nameI),
+      h('div', { class: 'two' }, field('Amount', amtI, true), field('Due on day', dueI, true)),
+      h('label', { class: 'switchrow' },
+        h('span', null, h('b', null, 'Repeats every month'),
+          h('small', null, 'Turn off for a one-time payment in ' + monthLabel(m, { month: 'long' }))),
+        repI),
+      h('div', { class: 'btnrow' },
+        button('primary', editing ? 'Save changes' : 'Add payment', null, 'submit'),
+        button('ghost', 'Cancel', closeSheet))
+    );
+
+    var nodes = [form];
+    if (editing) {
+      var canSkip = existing.until === null || existing.until > m;
+      nodes.push(h('div', { class: 'extras' },
+        canSkip ? h('button', { class: 'textbtn', type: 'button', onclick: function () {
+          var name = existing.name;
+          closeSheet();
+          change('Skipped “' + name + '” in ' + monthLabel(m, { month: 'long' }), function () { skipMonth(existing.id, m); });
+        } }, 'Skip ' + monthLabel(m, { month: 'long' }) + ' only') : null,
+        canSkip ? h('p', { class: 'hint' }, 'Hides it this month. It returns next month.') : null,
+        h('button', { class: 'textbtn dangertext', type: 'button', onclick: function () { removeSheet(existing.id); } }, 'Remove payment…')
+      ));
+    }
+    openSheet(editing ? 'Edit payment' : 'Add a payment', editing ? null : 'It will show up in ' + monthLabel(m, { month: 'long' }) + ' and every month after.', nodes, !editing);
+  }
+
+  function removeSheet(id) {
+    var p = find(id), m = view, next = shiftMonth(m, 1);
+    var continues = p.until === null || p.until > m;
+    var mName = monthLabel(m, { month: 'long' }), nName = monthLabel(next, { month: 'long' });
+    var nodes = [];
+    if (continues) {
+      nodes.push(h('div', { class: 'btnrow' },
+        button('danger', 'Remove from ' + nName + ' on', function () {
+          closeSheet();
+          change('Removed “' + p.name + '” from ' + nName + ' on', function () { removeFrom(id, next); });
+        }, 'button', mName + ' stays as it is'),
+        button('danger', 'Remove from ' + mName + ' on', function () {
+          closeSheet();
+          change('Removed “' + p.name + '”', function () { removeFrom(id, m); });
+        }, 'button', 'Also clears ' + mName),
+        button('ghost', 'Keep it', closeSheet)));
+    } else {
+      nodes.push(h('div', { class: 'btnrow' },
+        button('danger', 'Remove payment', function () {
+          closeSheet();
+          change('Removed “' + p.name + '”', function () { removeFrom(id, m); });
+        }),
+        button('ghost', 'Keep it', closeSheet)));
+    }
+    openSheet('Remove “' + p.name + '”?', 'Earlier months keep their history.', nodes);
+  }
+
+  function dateSheet(id, m) {
+    var p = find(id), rec = record(id, m);
+    if (!p || !rec) return;
+    var dateI = h('input', { type: 'date', required: true, value: rec.d });
+    var form = h('form', { onsubmit: function (e) {
+      e.preventDefault();
+      if (!dateI.value) return;
+      setPaidDate(id, m, dateI.value);
+      closeSheet();
+    } },
+      field('Date paid', dateI),
+      h('div', { class: 'btnrow' },
+        button('primary', 'Save date', null, 'submit'),
+        button('danger', 'Mark as not paid', function () { closeSheet(); unmarkPaid(id, m); }),
+        button('ghost', 'Cancel', closeSheet)));
+    openSheet(p.name, 'Ticking a payment records today’s date. Change it here if you paid on another day.', [form]);
+  }
+
+  var deferredInstall = null;
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferredInstall = e; });
+  window.addEventListener('appinstalled', function () { deferredInstall = null; toast('Installed on this phone'); });
+
+  function settingsSheet() {
+    var curI = h('input', { type: 'text', maxlength: '4', placeholder: 'e.g. $, €, zł', autocomplete: 'off', value: state.currency || '',
+      onchange: function () { state.currency = curI.value.trim(); save(); render(); } });
+    var fileI = h('input', { type: 'file', accept: 'application/json,.json', class: 'vis', tabindex: '-1', 'aria-hidden': 'true',
+      onchange: function () { importFile(fileI.files[0]); fileI.value = ''; } });
+
+    var nodes = [
+      field('Currency symbol', curI, true),
+      deferredInstall ? h('div', { class: 'section' }, h('h3', null, 'Install'),
+        h('p', null, 'Add Bill Tracker to your home screen so it opens like a normal app.'),
+        button('primary', 'Install on this phone', function () {
+          var ev = deferredInstall; deferredInstall = null; closeSheet(); ev.prompt();
+        })) : null,
+      h('div', { class: 'section' }, h('h3', null, 'Backup'),
+        h('p', null, 'Your data lives only on this phone. Save a backup file now and then, so you can restore it if the app data is ever cleared.'),
+        h('div', { class: 'btnrow' },
+          button('ghost', 'Save backup file', exportData),
+          button('ghost', 'Restore from backup file', function () { fileI.click(); }),
+          fileI)),
+      h('div', { class: 'section' }, h('h3', null, 'Erase everything'),
+        button('danger', 'Delete all data…', eraseSheet)),
+      h('div', { class: 'btnrow', style: 'margin-top:22px' }, button('ghost', 'Close', closeSheet))
+    ];
+    openSheet('Settings', null, nodes);
+  }
+
+  function eraseSheet() {
+    openSheet('Delete all data?', 'This removes every payment and all paid history from this phone. Save a backup first if you may want it back.', [
+      h('div', { class: 'btnrow' },
+        button('danger', 'Delete everything', function () {
+          state = blank(); save(); view = live; closeSheet(); render(); toast('All data deleted');
+        }),
+        button('ghost', 'Cancel', closeSheet))
+    ]);
+  }
+
+  function exportData() {
+    var blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = h('a', { href: url, download: 'bill-tracker-backup-' + todayISO() + '.json' });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+    toast('Backup file downloaded');
+  }
+
+  function importFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = sanitize(JSON.parse(reader.result)); } catch (e) { data = null; }
+      if (!data || !data.payments.length) { toast('That file is not a Bill Tracker backup.'); return; }
+      openSheet('Restore this backup?', 'It contains ' + data.payments.length + (data.payments.length === 1 ? ' payment' : ' payments') + '. It replaces what is on this phone now.', [
+        h('div', { class: 'btnrow' },
+          button('primary', 'Replace with backup', function () {
+            state = data; save(); view = live; closeSheet(); render(); toast('Backup restored');
+          }),
+          button('ghost', 'Cancel', closeSheet))
+      ]);
+    };
+    reader.onerror = function () { toast('Could not read that file.'); };
+    reader.readAsText(file);
+  }
+
+  /* ---------- wiring ---------- */
+  $('#prevBtn').innerHTML = ICON.left;
+  $('#nextBtn').innerHTML = ICON.right;
+  $('#settingsBtn').innerHTML = ICON.tune;
+  $('#addBtn').innerHTML = ICON.plus + '<span>Add payment</span>';
+  $('#prevBtn').addEventListener('click', function () { view = shiftMonth(view, -1); render(); });
+  $('#nextBtn').addEventListener('click', function () { view = shiftMonth(view, 1); render(); });
+  $('#todayBtn').addEventListener('click', function () { view = live; render(); });
+  $('#addBtn').addEventListener('click', function () { paymentSheet(null); });
+  $('#settingsBtn').addEventListener('click', settingsSheet);
+
+  // If the phone stays on past midnight on the last day of a month, roll over to the new month.
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var now = monthKey();
+    if (now !== live) { var following = view === live; live = now; if (following) view = now; }
+    render();
+  });
+
+  if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    navigator.serviceWorker.register('sw.js').catch(function () {});
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
