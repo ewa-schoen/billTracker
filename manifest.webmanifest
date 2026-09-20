@@ -1,6 +1,6 @@
 {
   "name": "Bill Tracker",
-  "short_name": "Bills",
+  "short_name": "billTracker",
   "description": "A monthly checklist of the payments you need to make. Tick them off, see when you paid, and it resets every month.",
   "id": "./",
   "start_url": "./",
